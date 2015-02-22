@@ -3,3 +3,7 @@ target
 
 #Sbt project dir
 project
+# intellij out dir
+out
+# intellij project dir
+.idea

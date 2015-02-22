@@ -1,0 +1,5 @@
+#Sbt target dir
+target
+
+#Sbt project dir
+project

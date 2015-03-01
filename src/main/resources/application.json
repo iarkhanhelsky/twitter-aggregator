@@ -1,4 +1,8 @@
 {
+  "akka" : {
+    "logLevel" : "DEBUG"
+  },
+
   "actors"   : {
     "name"   : "twitter-actors"
   },

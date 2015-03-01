@@ -1,9 +1,50 @@
 package org.scala.lab.twitter
 
-import akka.actor.ActorSystem
+import akka.actor.{Props, ActorSystem, Actor, ActorRef}
+import akka.io.IO
 import com.typesafe.config.ConfigFactory
+import core.OAuth
+import core.OAuth._
 
 import org.scala.lab.twitter.Configuration._
+import spray.can.Http
+import spray.client.pipelining._
+import spray.http._
+
+import scala.io.Source
+
+trait TwitterAuthorization {
+  def authorize: HttpRequest => HttpRequest
+}
+
+trait OAuthTwitterAuthorization extends TwitterAuthorization {
+  import OAuth._
+
+  val consumer : Consumer = ???
+  val token: Token = ???
+
+  val authorize: (HttpRequest) => HttpRequest = oAuthAuthorizer(consumer, token)
+}
+
+object TweetStreamerActor {
+  val twitterUri = Uri("https://stream.twitter.com/1.1/statuses/filter.json")
+}
+
+class TweetStreamerActor(uri: Uri, consumer : Consumer, token : Token) extends Actor {
+  this: TwitterAuthorization =>
+  val io = IO(Http)(context.system)
+
+  def receive: Receive = {
+    case query: String =>
+      val body = HttpEntity(ContentType(MediaTypes.`application/x-www-form-urlencoded`), s"track=$query")
+      val rq = HttpRequest(HttpMethods.POST, uri = uri, entity = body) ~> authorize
+      sendTo(io).withResponsesReceivedBy(self)(rq)
+    case ChunkedResponseStart(_) =>
+    case MessageChunk(entity, _) => println(entity)
+    case _ =>
+  }
+}
+
 
 object TwiAgg {
   def main(args: Array[String]): Unit = {
@@ -12,20 +53,19 @@ object TwiAgg {
       ConfigFactory.load("application.json").withFallback(ConfigFactory.load("auth.json"))) // fallback to stubbed file
                                                                                             // which not commited
 
-    implicit val actors = ActorSystem(config.actors.systemName)
+    // From Twitter Developer Console
+    // Consumer key-secret pair for OAuth
+    val consumer = Consumer(config.twitter.auth.key, config.twitter.auth.secret)
+    // Token for OAuth
+    val token = Token(config.twitter.auth.token, config.twitter.auth.tokenSecret)
 
-    val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
+    // Init actor system
+    val system = ActorSystem("twitter")
 
-    val response: Future[HttpResponse] = pipeline(Post("https://api.twitter.com/oauth2/token",
-      Authorization(BasicHttpCredentials(Tools.encode64(config.twitter.auth.key + ":" + config.twitter.auth.secret))),
-      HttpEntity(MediaTypes.`application/x-www-form-urlencoded`, "grant_type=client_credentials")))
+    // Create twitter stream
+    val stream = system.actorOf(Props(new TweetStreamerActor(TweetStreamerActor.twitterUri, consumer, token) with OAuthTwitterAuthorization))
 
-    response onComplete {
-      case Success(somethingUnexpected) =>
-        println("Ok with something: " + somethingUnexpected)
-
-      case Failure(error) =>
-        println("Fail")
-    }
+    // Run query
+    stream ! "hello"
   }
 }

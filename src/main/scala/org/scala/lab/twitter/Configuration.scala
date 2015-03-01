@@ -5,7 +5,7 @@ import sun.misc.BASE64Encoder
 import scala.collection.JavaConversions._
 
 case class AkkaConf(systemName : String)
-case class TwitterAuth(key : String, secret : String)
+case class TwitterAuth(key : String, secret : String, token: String, tokenSecret : String)
 case class TwitterConfig(auth : TwitterAuth, queries : List[String])
 case class AggregatorConfig(actors : AkkaConf, twitter : TwitterConfig)
 
@@ -25,7 +25,7 @@ object Configuration {
     // If set to zero the individual response parts of chunked requests
     // are dispatched to the application as they come in.
     // Else we'll get response timeout
-    assert(config.atPath("spray.client.response-chunk-aggregation-limit") == 0)
+    assert(config.getInt("spray.client.response-chunk-aggregation-limit") == 0)
 
     return config
   }
@@ -36,7 +36,9 @@ object Configuration {
       TwitterConfig(
         TwitterAuth(
           config.getString("twitter.auth.key"),
-          config.getString("twitter.auth.secret")),
+          config.getString("twitter.auth.secret"),
+          config.getString("twitter.auth.token"),
+          config.getString("twitter.auth.token-secret")),
         config.getStringList("queries").toList))
   }
 }

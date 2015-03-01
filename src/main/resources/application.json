@@ -1,4 +1,13 @@
 {
-  "app-name" : "twitter-aggregator",
-  "app-mod"  : "Hello from twitter-aggregator"
-}
+  "actors"   : {
+    "name"   : "twitter-actors"
+  },
+
+  "queries" : ["reactive", "magic", "eyot"],
+
+  "spray" : {
+    "client" : {
+      "response-chunk-aggregation-limit" : 0
+    }
+  }
+ }

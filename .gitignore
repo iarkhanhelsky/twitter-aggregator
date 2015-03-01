@@ -1,3 +1,7 @@
+
+#Sbt project dir
+project
+
 # intellij out dir
 out
 # intellij project dir
@@ -17,3 +21,4 @@ lib_managed/
 src_managed/
 project/boot/
 project/plugins/project/
+

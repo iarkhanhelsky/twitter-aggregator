@@ -1,4 +1,4 @@
-name := "scala-lab"
+name := "twitter-aggregator"
 
 version := "1.0"
 
@@ -18,5 +18,3 @@ libraryDependencies += "io.spray" %% "spray-client" % "1.3.2"
 libraryDependencies += "io.spray" %% "spray-httpx" % "1.3.2"
 
 libraryDependencies += "io.spray" %% "spray-json" % "1.3.1"
-
-

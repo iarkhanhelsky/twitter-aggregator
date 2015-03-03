@@ -11,7 +11,6 @@ import spray.can.Http
 import spray.client.pipelining._
 import spray.http._
 
-import scala.io.Source
 
 trait TwitterAuthorization {
   def authorize: HttpRequest => HttpRequest
@@ -20,8 +19,8 @@ trait TwitterAuthorization {
 trait OAuthTwitterAuthorization extends TwitterAuthorization {
   import OAuth._
 
-  val consumer : Consumer = ???
-  val token: Token = ???
+  def consumer: Consumer = ???
+  def token: Token = ???
 
   val authorize: (HttpRequest) => HttpRequest = oAuthAuthorizer(consumer, token)
 }
@@ -35,13 +34,23 @@ class TweetStreamerActor(uri: Uri, consumer : Consumer, token : Token) extends A
   val io = IO(Http)(context.system)
 
   def receive: Receive = {
+
     case query: String =>
       val body = HttpEntity(ContentType(MediaTypes.`application/x-www-form-urlencoded`), s"track=$query")
       val rq = HttpRequest(HttpMethods.POST, uri = uri, entity = body) ~> authorize
       sendTo(io).withResponsesReceivedBy(self)(rq)
     case ChunkedResponseStart(_) =>
+
     case MessageChunk(entity, _) => println(entity)
-    case _ =>
+
+    case HttpResponse(StatusCodes.Unauthorized, _ , _, _) =>
+      println("Shutting down with error : unauthorized")
+      context.system.shutdown()
+      System.exit(401)
+
+    case other =>
+      println(s"Unexpected receive $other")
+      System.exit(500)
   }
 }
 
@@ -59,13 +68,23 @@ object TwiAgg {
     // Token for OAuth
     val token = Token(config.twitter.auth.token, config.twitter.auth.tokenSecret)
 
+    case class AuthPair(consumer : Consumer, token : Token);
+
+    val authPair = AuthPair(consumer, token)
+
     // Init actor system
     val system = ActorSystem("twitter")
 
     // Create twitter stream
-    val stream = system.actorOf(Props(new TweetStreamerActor(TweetStreamerActor.twitterUri, consumer, token) with OAuthTwitterAuthorization))
+    val stream = system
+      .actorOf(Props(
+          new TweetStreamerActor(TweetStreamerActor.twitterUri, consumer, token)
+            with OAuthTwitterAuthorization{
+            override def consumer : Consumer = authPair.consumer
+            override def token : Token = authPair.token
+          }))
 
     // Run query
-    stream ! "hello"
+    stream ! config.twitter.queries.iterator.next()
   }
 }

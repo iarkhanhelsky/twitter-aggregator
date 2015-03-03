@@ -9,6 +9,7 @@ import core.OAuth._
 import org.scala.lab.twitter.Configuration._
 import spray.can.Http
 import spray.client.pipelining._
+import spray.http.HttpData.Bytes
 import spray.http._
 
 
@@ -41,7 +42,7 @@ class TweetStreamerActor(uri: Uri, consumer : Consumer, token : Token) extends A
       sendTo(io).withResponsesReceivedBy(self)(rq)
     case ChunkedResponseStart(_) =>
 
-    case MessageChunk(entity, _) => println(entity)
+    case MessageChunk(entity, _) => println(new String(entity.toByteString.toArray))
 
     case HttpResponse(StatusCodes.Unauthorized, _ , _, _) =>
       println("Shutting down with error : unauthorized")
@@ -55,8 +56,9 @@ class TweetStreamerActor(uri: Uri, consumer : Consumer, token : Token) extends A
 }
 
 
-object TwiAgg {
-  def main(args: Array[String]): Unit = {
+object TwiAgg extends App {
+  override def main(args: Array[String]): Unit = {
+    super.main(args)
     // Read config
     val config = readConfig(
       ConfigFactory.load("application.json").withFallback(ConfigFactory.load("auth.json"))) // fallback to stubbed file
@@ -86,5 +88,11 @@ object TwiAgg {
 
     // Run query
     stream ! config.twitter.queries.iterator.next()
+  }
+
+  sys.addShutdownHook(shutdown)
+
+  def shutdown() : Unit = {
+    println("Bye!")
   }
 }

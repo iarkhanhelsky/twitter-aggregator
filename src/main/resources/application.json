@@ -9,9 +9,11 @@
 
   "queries" : ["reactive", "magic", "eyot"],
 
-  "spray" : {
-    "client" : {
-      "response-chunk-aggregation-limit" : 0
+  "spray": {
+    "can": {
+      "client": {
+        "response-chunk-aggregation-limit": 0
+      }
     }
   }
  }

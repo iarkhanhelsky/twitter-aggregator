@@ -25,7 +25,7 @@ object Configuration {
     // If set to zero the individual response parts of chunked requests
     // are dispatched to the application as they come in.
     // Else we'll get response timeout
-    assert(config.getInt("spray.client.response-chunk-aggregation-limit") == 0)
+    assert(config.getInt("spray.can.client.response-chunk-aggregation-limit") == 0)
 
     return config
   }

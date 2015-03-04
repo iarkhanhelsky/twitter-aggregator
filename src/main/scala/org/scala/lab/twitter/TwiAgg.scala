@@ -37,22 +37,18 @@ object TwiAgg extends App {
 
     parser.parse(args, ArgsConfig()) match {
       case Some(argsConf) =>
-        //
+        // fallback config
         val fallback = ConfigFactory.load(argsConf.authJson)
 
         // Read config
-        val config = readConfig(
-          ConfigFactory.load("application.json").withFallback(fallback))
+        val config = readConfig(ConfigFactory.load("application.json").withFallback(fallback))
 
-        // From Twitter Developer Console
-        // Consumer key-secret pair for OAuth
-        val consumer = Consumer(config.twitter.auth.key, config.twitter.auth.secret)
-        // Token for OAuth
-        val token = Token(config.twitter.auth.token, config.twitter.auth.tokenSecret)
-
-        case class AuthPair(consumer: Consumer, token: Token);
-
-        val authPair = AuthPair(consumer, token)
+        val authPair = AuthPair(
+          // From Twitter Developer Console
+          // Consumer key-secret pair for OAuth
+          Consumer(config.twitter.auth.key, config.twitter.auth.secret),
+          // Token for OAuth
+          Token(config.twitter.auth.token, config.twitter.auth.tokenSecret))
 
         // Init actor system
         val system = ActorSystem("twitter")
@@ -60,7 +56,7 @@ object TwiAgg extends App {
         // Create twitter stream
         val stream = system
           .actorOf(Props(
-          new TweetStreamerActor(twitterStreamingUri, consumer, token)
+          new TweetStreamerActor(twitterStreamingUri)
             with OAuthTwitterAuthorization {
 
             override def consumer: Consumer = authPair.consumer

@@ -32,7 +32,7 @@ object TwitterDefines {
 }
 
 // Base streaming actor which listens for query responses
-class TweetStreamerActor(uri: Uri, consumer: Consumer, token: Token) extends Actor {
+class TweetStreamerActor(uri: Uri) extends Actor {
   this: TwitterAuthorization =>
   val io = IO(Http)(context.system)
 

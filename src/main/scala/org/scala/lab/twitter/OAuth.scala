@@ -11,6 +11,7 @@ import java.net.URLEncoder
 object OAuth {
   case class Consumer(key: String, secret: String)
   case class Token(value: String, secret: String)
+  case class AuthPair(consumer: Consumer, token: Token);
 
   def oAuthAuthorizer(consumer: Consumer, token: Token): HttpRequest => HttpRequest = {
     // construct the key and cryptographic entity

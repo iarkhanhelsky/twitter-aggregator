@@ -99,16 +99,17 @@ object TwiAgg extends App {
           .actorOf(Props(
           new TweetStreamerActor(TweetStreamerActor.twitterUri, consumer, token)
             with OAuthTwitterAuthorization {
-            override def consumer: Consumer = authPair.consumer
 
+            override def consumer: Consumer = authPair.consumer
             override def token: Token = authPair.token
+
           }))
 
         // Run query
         stream ! config.twitter.queries.iterator.next()
 
       case None =>
-        println("Got none")
+        // do nothing. will print help
     }
   }
 

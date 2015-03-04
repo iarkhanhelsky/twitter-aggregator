@@ -8,6 +8,7 @@ project
 out
 # intellij project dir
 .idea
+.idea_modules
 
 
 *.class

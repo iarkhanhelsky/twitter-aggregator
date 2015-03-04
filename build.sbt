@@ -18,3 +18,8 @@ libraryDependencies += "io.spray" %% "spray-client" % "1.3.2"
 libraryDependencies += "io.spray" %% "spray-httpx" % "1.3.2"
 
 libraryDependencies += "io.spray" %% "spray-json" % "1.3.1"
+
+// Cli args parse
+libraryDependencies += "com.github.scopt" %% "scopt" % "3.3.0"
+
+resolvers += Resolver.sonatypeRepo("public")

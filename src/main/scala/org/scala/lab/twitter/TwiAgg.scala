@@ -6,57 +6,12 @@ import com.typesafe.config.ConfigFactory
 import core.OAuth
 import core.OAuth._
 import org.scala.lab.twitter.Configuration._
+import org.scala.lab.twitter.TwitterDefines.twitterStreamingUri
 import spray.can.Http
 import spray.client.pipelining._
 import spray.http._
 
-
-trait TwitterAuthorization {
-  def authorize: HttpRequest => HttpRequest
-}
-
-trait OAuthTwitterAuthorization extends TwitterAuthorization {
-
-  import core.OAuth._
-
-  def consumer: Consumer = ???
-
-  def token: Token = ???
-
-  val authorize: (HttpRequest) => HttpRequest = oAuthAuthorizer(consumer, token)
-}
-
-object TweetStreamerActor {
-  val twitterUri = Uri("https://stream.twitter.com/1.1/statuses/filter.json")
-}
-
-class TweetStreamerActor(uri: Uri, consumer: Consumer, token: Token) extends Actor {
-  this: TwitterAuthorization =>
-  val io = IO(Http)(context.system)
-
-  def receive: Receive = {
-
-    case query: String =>
-      val body = HttpEntity(ContentType(MediaTypes.`application/x-www-form-urlencoded`), s"track=$query")
-      val rq = HttpRequest(HttpMethods.POST, uri = uri, entity = body) ~> authorize
-      sendTo(io).withResponsesReceivedBy(self)(rq)
-    case ChunkedResponseStart(_) =>
-
-    case MessageChunk(entity, _) => println(new String(entity.toByteString.toArray))
-
-    case HttpResponse(StatusCodes.Unauthorized, _, _, _) =>
-      println("Shutting down with error : unauthorized")
-      context.system.shutdown()
-      System.exit(401)
-
-    case other =>
-      println(s"Unexpected receive $other")
-      System.exit(500)
-  }
-}
-
 case class ArgsConfig(authJson: String = "auth.json")
-
 
 object TwiAgg extends App {
   override def main(args: Array[String]): Unit = {
@@ -97,7 +52,7 @@ object TwiAgg extends App {
         // Create twitter stream
         val stream = system
           .actorOf(Props(
-          new TweetStreamerActor(TweetStreamerActor.twitterUri, consumer, token)
+          new TweetStreamerActor(twitterStreamingUri, consumer, token)
             with OAuthTwitterAuthorization {
 
             override def consumer: Consumer = authPair.consumer

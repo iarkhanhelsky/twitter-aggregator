@@ -52,11 +52,12 @@ object TwitterAggregator extends App {
 
         // Init actor system
         val system = ActorSystem("twitter")
+        val http = IO(Http)(system)
 
         // Create twitter stream
         val stream = system
           .actorOf(Props(
-          new TweetStreamerActor(twitterStreamingUri)
+          new TweetStreamerActor(http)
             with OAuthTwitterAuthorization {
 
             override def consumer: Consumer = authPair.consumer
@@ -64,8 +65,8 @@ object TwitterAggregator extends App {
 
           }))
 
-        // Run query
-        stream ! config.twitter.queries.iterator.next()
+        // Run queries
+        config.twitter.queries.foreach(stream ! _)
 
       case None =>
         // do nothing. will print help

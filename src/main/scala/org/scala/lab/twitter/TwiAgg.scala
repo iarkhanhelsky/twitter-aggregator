@@ -23,8 +23,16 @@ object TwiAgg extends App {
         c.copy(authJson = x)
       } text ("optional auth file to override auth settings \n" +
         "format is following: \n" +
-        "{\n  \"twitter\" : {\n    \"auth\" : {\n      \"key\" : <consumer-key>,\n      \"secret\" : <consumer-secret>,\n" +
-        "      \"token\" : <access-token>,\n      \"token-secret\" : <access-token-secret>\n    }\n  }\n}")
+        "{\n" +
+        "  \"twitter\" : {\n" +
+        "    \"auth\" : {\n" +
+        "      \"key\" : <consumer-key>,\n" +
+        "      \"secret\" : <consumer-secret>,\n" +
+        "      \"token\" : <access-token>,\n" +
+        "      \"token-secret\" : <access-token-secret>\n" +
+        "    }\n" +
+        "  }\n" +
+        "}")
     }
 
     parser.parse(args, ArgsConfig()) match {

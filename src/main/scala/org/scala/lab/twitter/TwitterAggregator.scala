@@ -13,7 +13,7 @@ import spray.http._
 
 case class ArgsConfig(authJson: String = "auth.json")
 
-object TwiAgg extends App {
+object TwitterAggregator extends App {
   override def main(args: Array[String]): Unit = {
     super.main(args)
 

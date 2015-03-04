@@ -7,7 +7,7 @@
     "name"   : "twitter-actors"
   },
 
-  "queries" : ["reactive", "magic", "eyot"],
+  "queries" : ["magic"],
 
   "spray": {
     "can": {

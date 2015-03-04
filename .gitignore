@@ -1,3 +1,5 @@
+# Real auth file. can be passed through command line options
+auth.real.json
 
 #Sbt project dir
 project

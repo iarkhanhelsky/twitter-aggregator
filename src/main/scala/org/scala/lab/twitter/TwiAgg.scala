@@ -1,18 +1,14 @@
 package org.scala.lab.twitter
 
-import akka.actor.{Props, ActorSystem, Actor, ActorRef}
+import akka.actor.{Actor, ActorSystem, Props}
 import akka.io.IO
 import com.typesafe.config.ConfigFactory
 import core.OAuth
 import core.OAuth._
-
 import org.scala.lab.twitter.Configuration._
 import spray.can.Http
 import spray.client.pipelining._
-import spray.http.HttpData.Bytes
 import spray.http._
-
-import scala.reflect.io.File
 
 
 trait TwitterAuthorization {
@@ -20,9 +16,11 @@ trait TwitterAuthorization {
 }
 
 trait OAuthTwitterAuthorization extends TwitterAuthorization {
-  import OAuth._
+
+  import core.OAuth._
 
   def consumer: Consumer = ???
+
   def token: Token = ???
 
   val authorize: (HttpRequest) => HttpRequest = oAuthAuthorizer(consumer, token)
@@ -32,7 +30,7 @@ object TweetStreamerActor {
   val twitterUri = Uri("https://stream.twitter.com/1.1/statuses/filter.json")
 }
 
-class TweetStreamerActor(uri: Uri, consumer : Consumer, token : Token) extends Actor {
+class TweetStreamerActor(uri: Uri, consumer: Consumer, token: Token) extends Actor {
   this: TwitterAuthorization =>
   val io = IO(Http)(context.system)
 
@@ -46,7 +44,7 @@ class TweetStreamerActor(uri: Uri, consumer : Consumer, token : Token) extends A
 
     case MessageChunk(entity, _) => println(new String(entity.toByteString.toArray))
 
-    case HttpResponse(StatusCodes.Unauthorized, _ , _, _) =>
+    case HttpResponse(StatusCodes.Unauthorized, _, _, _) =>
       println("Shutting down with error : unauthorized")
       context.system.shutdown()
       System.exit(401)
@@ -57,7 +55,7 @@ class TweetStreamerActor(uri: Uri, consumer : Consumer, token : Token) extends A
   }
 }
 
-case class ArgsConfig(authJson : String = "auth.json")
+case class ArgsConfig(authJson: String = "auth.json")
 
 
 object TwiAgg extends App {
@@ -66,8 +64,9 @@ object TwiAgg extends App {
 
     val parser = new scopt.OptionParser[ArgsConfig]("twitter-aggregator") {
       head("twitter-aggregator")
-      opt[String]('A', "auth-json") valueName("<file>") action { (x, c) =>
-        c.copy(authJson = x) } text("optional auth file to override auth settings \n" +
+      opt[String]('A', "auth-json") valueName ("<file>") action { (x, c) =>
+        c.copy(authJson = x)
+      } text ("optional auth file to override auth settings \n" +
         "format is following: \n" +
         "{\n  \"twitter\" : {\n    \"auth\" : {\n      \"key\" : <consumer-key>,\n      \"secret\" : <consumer-secret>,\n" +
         "      \"token\" : <access-token>,\n      \"token-secret\" : <access-token-secret>\n    }\n  }\n}")
@@ -88,7 +87,7 @@ object TwiAgg extends App {
         // Token for OAuth
         val token = Token(config.twitter.auth.token, config.twitter.auth.tokenSecret)
 
-        case class AuthPair(consumer : Consumer, token : Token);
+        case class AuthPair(consumer: Consumer, token: Token);
 
         val authPair = AuthPair(consumer, token)
 
@@ -99,9 +98,10 @@ object TwiAgg extends App {
         val stream = system
           .actorOf(Props(
           new TweetStreamerActor(TweetStreamerActor.twitterUri, consumer, token)
-            with OAuthTwitterAuthorization{
-            override def consumer : Consumer = authPair.consumer
-            override def token : Token = authPair.token
+            with OAuthTwitterAuthorization {
+            override def consumer: Consumer = authPair.consumer
+
+            override def token: Token = authPair.token
           }))
 
         // Run query
@@ -114,7 +114,7 @@ object TwiAgg extends App {
 
   sys.addShutdownHook(shutdown)
 
-  def shutdown() : Unit = {
+  def shutdown(): Unit = {
     println("Bye!")
   }
 }

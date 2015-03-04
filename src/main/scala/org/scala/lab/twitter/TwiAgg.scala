@@ -12,6 +12,8 @@ import spray.client.pipelining._
 import spray.http.HttpData.Bytes
 import spray.http._
 
+import scala.reflect.io.File
+
 
 trait TwitterAuthorization {
   def authorize: HttpRequest => HttpRequest
@@ -55,39 +57,59 @@ class TweetStreamerActor(uri: Uri, consumer : Consumer, token : Token) extends A
   }
 }
 
+case class ArgsConfig(authJson : String = "auth.json")
+
 
 object TwiAgg extends App {
   override def main(args: Array[String]): Unit = {
     super.main(args)
-    // Read config
-    val config = readConfig(
-      ConfigFactory.load("application.json").withFallback(ConfigFactory.load("auth.json"))) // fallback to stubbed file
-                                                                                            // which not commited
 
-    // From Twitter Developer Console
-    // Consumer key-secret pair for OAuth
-    val consumer = Consumer(config.twitter.auth.key, config.twitter.auth.secret)
-    // Token for OAuth
-    val token = Token(config.twitter.auth.token, config.twitter.auth.tokenSecret)
+    val parser = new scopt.OptionParser[ArgsConfig]("twitter-aggregator") {
+      head("twitter-aggregator")
+      opt[String]('A', "auth-json") valueName("<file>") action { (x, c) =>
+        c.copy(authJson = x) } text("optional auth file to override auth settings \n" +
+        "format is following: \n" +
+        "{\n  \"twitter\" : {\n    \"auth\" : {\n      \"key\" : <consumer-key>,\n      \"secret\" : <consumer-secret>,\n" +
+        "      \"token\" : <access-token>,\n      \"token-secret\" : <access-token-secret>\n    }\n  }\n}")
+    }
 
-    case class AuthPair(consumer : Consumer, token : Token);
+    parser.parse(args, ArgsConfig()) match {
+      case Some(argsConf) =>
+        //
+        val fallback = ConfigFactory.load(argsConf.authJson)
 
-    val authPair = AuthPair(consumer, token)
+        // Read config
+        val config = readConfig(
+          ConfigFactory.load("application.json").withFallback(fallback))
 
-    // Init actor system
-    val system = ActorSystem("twitter")
+        // From Twitter Developer Console
+        // Consumer key-secret pair for OAuth
+        val consumer = Consumer(config.twitter.auth.key, config.twitter.auth.secret)
+        // Token for OAuth
+        val token = Token(config.twitter.auth.token, config.twitter.auth.tokenSecret)
 
-    // Create twitter stream
-    val stream = system
-      .actorOf(Props(
+        case class AuthPair(consumer : Consumer, token : Token);
+
+        val authPair = AuthPair(consumer, token)
+
+        // Init actor system
+        val system = ActorSystem("twitter")
+
+        // Create twitter stream
+        val stream = system
+          .actorOf(Props(
           new TweetStreamerActor(TweetStreamerActor.twitterUri, consumer, token)
             with OAuthTwitterAuthorization{
             override def consumer : Consumer = authPair.consumer
             override def token : Token = authPair.token
           }))
 
-    // Run query
-    stream ! config.twitter.queries.iterator.next()
+        // Run query
+        stream ! config.twitter.queries.iterator.next()
+
+      case None =>
+        println("Got none")
+    }
   }
 
   sys.addShutdownHook(shutdown)

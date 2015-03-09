@@ -3,7 +3,7 @@ package org.scala.lab.twitter
 import akka.actor.{Props, ActorRef, Actor}
 import org.scala.lab.twitter.TwitterDefines._
 import spray.http._
-import spray.json.DefaultJsonProtocol
+import spray.json.{DeserializationException, JsonReader, JsonParser, DefaultJsonProtocol}
 import spray.client.pipelining._
 
 // Provides basic authorization method
@@ -28,9 +28,10 @@ trait OAuthTwitterAuthorization extends TwitterAuthorization {
 object TwitterDefines {
   val twitterStreamingUri = Uri("https://stream.twitter.com/1.1/statuses/filter.json")
 
-  case class Tweet(createdAt : String, id : String, text : String)
+  case class Tweet(id : String, text : String)
+
   object TweetJsonProtocol extends DefaultJsonProtocol {
-    implicit val tweet = jsonFormat3(Tweet)
+    implicit val tweet = jsonFormat2(Tweet)
   }
 }
 
@@ -61,11 +62,17 @@ class TweetStreamerActor(io : ActorRef) extends Actor {
 
 // Processes queries responses
 class TwitterQueryActor extends Actor {
+  import TweetJsonProtocol._
+  
   def receive: Receive = {
     case ChunkedResponseStart(_) =>
       // do nothing
     case MessageChunk(entity, _) =>
-      println(new String(entity.toByteString.toArray))
+      val incoming = new String(entity.toByteString.toArray)
+//      println(JsonParser(incoming).convertTo[Tweet].text)
+      println(incoming)
+
+    case ChunkedMessageEnd(_, _) =>
 
     case other =>
       // All other messages forwarded to parent

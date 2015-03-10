@@ -23,3 +23,13 @@ libraryDependencies += "io.spray" %% "spray-json" % "1.3.1"
 libraryDependencies += "com.github.scopt" %% "scopt" % "3.3.0"
 
 resolvers += Resolver.sonatypeRepo("public")
+
+// AspectJ
+libraryDependencies += "org.aspectj" % "aspectjweaver" % "1.7.2"
+
+libraryDependencies += "org.aspectj" % "aspectjrt" % "1.7.2"
+
+// Kamon io
+resolvers += "Kamon Repository" at "http://repo.kamon.io"
+
+libraryDependencies += "kamon" %%  "kamon-spray" % "0.0.11"

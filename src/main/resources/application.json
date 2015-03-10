@@ -1,6 +1,12 @@
 {
   "akka" : {
-    "logLevel" : "DEBUG"
+    "logLevel": "DEBUG",
+    "loggers": ["akka.event.slf4j.Slf4jLogger"],
+    "actor": {
+      "debug": {
+        "unhandled": "on"
+      }
+    }
   },
 
   "actors"   : {

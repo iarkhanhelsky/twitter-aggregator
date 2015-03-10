@@ -2,9 +2,12 @@ package org.scala.lab.twitter
 
 import akka.actor.{Props, ActorRef, Actor}
 import org.scala.lab.twitter.TwitterDefines._
+import spray.http.Uri.Query
 import spray.http._
 import spray.json.{DeserializationException, JsonReader, JsonParser, DefaultJsonProtocol}
 import spray.client.pipelining._
+
+import scala.collection.mutable
 
 // Provides basic authorization method
 trait TwitterAuthorization {
@@ -44,7 +47,7 @@ class TweetStreamerActor(io : ActorRef) extends Actor {
     case query: String =>
       val body = HttpEntity(ContentType(MediaTypes.`application/x-www-form-urlencoded`), s"track=$query")
       val rq = HttpRequest(HttpMethods.POST, uri = twitterStreamingUri, entity = body) ~> authorize
-      sendTo(io).withResponsesReceivedBy(context.actorOf(Props(new TwitterQueryActor)))(rq)
+      sendTo(io).withResponsesReceivedBy(context.actorOf(Props(new TwitterQueryActor(query))))(rq)
 
     case HttpResponse(StatusCodes.Unauthorized, _, _, _) =>
       println("Shutting down with error : unauthorized")
@@ -61,22 +64,32 @@ class TweetStreamerActor(io : ActorRef) extends Actor {
 }
 
 // Processes queries responses
-class TwitterQueryActor extends Actor {
+class TwitterQueryActor(query: String) extends Actor {
   import TweetJsonProtocol._
-  
+
+  var last : String = ""
+
   def receive: Receive = {
-    case ChunkedResponseStart(_) =>
+    case ChunkedResponseStart(x) =>
       // do nothing
     case MessageChunk(entity, _) =>
-      val incoming = new String(entity.toByteString.toArray)
-//      println(JsonParser(incoming).convertTo[Tweet].text)
-      println(incoming)
+      val chunk = new String(entity.toByteArray)
+      last = scan((last + chunk).split("\r").filterNot(_.isEmpty)).mkString("\r")
 
     case ChunkedMessageEnd(_, _) =>
-
+      // do nothing
     case other =>
       // All other messages forwarded to parent
       // to resolve possible problems
       context.parent.forward(other)
+  }
+
+  def scan(seq: Array[String]): Array[String] = {
+    if (seq.length < 2) {
+      seq
+    } else {
+      JsonParser(seq.head).asJsObject.getFields("text").foreach(println(_))
+      scan(seq.tail)
+    }
   }
 }

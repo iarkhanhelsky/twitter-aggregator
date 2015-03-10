@@ -4,7 +4,7 @@ import akka.actor.{Props, ActorRef, Actor}
 import org.scala.lab.twitter.TwitterDefines._
 import spray.http.Uri.Query
 import spray.http._
-import spray.json.{DeserializationException, JsonReader, JsonParser, DefaultJsonProtocol}
+import spray.json._
 import spray.client.pipelining._
 
 import scala.collection.mutable
@@ -31,10 +31,12 @@ trait OAuthTwitterAuthorization extends TwitterAuthorization {
 object TwitterDefines {
   val twitterStreamingUri = Uri("https://stream.twitter.com/1.1/statuses/filter.json")
 
-  case class Tweet(id : String, text : String)
+  case class TwitterUser(id: Long, username: String)
+  case class Tweet(id: Long, text: String, createdAt: String, user: TwitterUser)
 
   object TweetJsonProtocol extends DefaultJsonProtocol {
-    implicit val tweet = jsonFormat2(Tweet)
+    implicit val user = jsonFormat(TwitterUser, "id", "screen_name")
+    implicit val tweet = jsonFormat(Tweet, "id", "text", "created_at", "user")
   }
 }
 
@@ -65,7 +67,8 @@ class TweetStreamerActor(io : ActorRef) extends Actor {
 
 // Processes queries responses
 class TwitterQueryActor(query: String) extends Actor {
-  import TweetJsonProtocol._
+  import TweetJsonProtocol.tweet
+  import TweetJsonProtocol.user
 
   var last : String = ""
 
@@ -74,7 +77,12 @@ class TwitterQueryActor(query: String) extends Actor {
       // do nothing
     case MessageChunk(entity, _) =>
       val chunk = new String(entity.toByteArray)
-      last = scan((last + chunk).split("\r").filterNot(_.isEmpty)).mkString("\r")
+      val (tweets, lst) = scan((last + chunk).split("\r").filterNot(_.isEmpty))
+      last = lst.mkString("\r")
+      tweets
+        .map((t : Tweet) => (t.user.username, t.text))
+        .map((v : (String, String)) => s"$query :: @${v._1} > ${v._2}")
+        .foreach(println)
 
     case ChunkedMessageEnd(_, _) =>
       // do nothing
@@ -84,12 +92,13 @@ class TwitterQueryActor(query: String) extends Actor {
       context.parent.forward(other)
   }
 
-  def scan(seq: Array[String]): Array[String] = {
+  def scan(seq: Array[String]): (Array[Tweet], Array[String]) = {
     if (seq.length < 2) {
-      seq
+      (Array(), seq)
     } else {
-      JsonParser(seq.head).asJsObject.getFields("text").foreach(println(_))
-      scan(seq.tail)
+      val tweet = JsonParser(seq.head).convertTo[Tweet](TweetJsonProtocol.tweet)
+      val (tweets, rest) = scan(seq.tail)
+      (Array(tweet) ++ tweets, rest)
     }
   }
 }

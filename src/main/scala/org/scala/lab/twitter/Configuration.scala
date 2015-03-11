@@ -1,7 +1,6 @@
 package org.scala.lab.twitter
 
 import com.typesafe.config.Config
-import sun.misc.BASE64Encoder
 import scala.collection.JavaConversions._
 
 case class AkkaConf(systemName : String)
@@ -10,12 +9,9 @@ case class TwitterConfig(auth : TwitterAuth, queries : List[String])
 case class AggregatorConfig(actors : AkkaConf, twitter : TwitterConfig)
 
 object Configuration {
-  def encode64(msg: String): String = {
-    new BASE64Encoder().encode(msg.getBytes)
-  }
 
   def readConfig(config: Config): AggregatorConfig = {
-    return parse(check(config))
+     parse(check(config))
   }
 
   // Run some assertions on config
@@ -27,7 +23,7 @@ object Configuration {
     // Else we'll get response timeout
     assert(config.getInt("spray.can.client.response-chunk-aggregation-limit") == 0)
 
-    return config
+    config
   }
 
   private def parse(config: Config): AggregatorConfig = {

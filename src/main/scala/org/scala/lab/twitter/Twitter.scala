@@ -1,13 +1,10 @@
 package org.scala.lab.twitter
 
-import akka.actor.{Props, ActorRef, Actor}
+import akka.actor.{Actor, ActorRef, Props}
 import org.scala.lab.twitter.TwitterDefines._
-import spray.http.Uri.Query
+import spray.client.pipelining._
 import spray.http._
 import spray.json._
-import spray.client.pipelining._
-
-import scala.collection.mutable
 
 // Provides basic authorization method
 trait TwitterAuthorization {
@@ -41,14 +38,15 @@ object TwitterDefines {
 }
 
 // Base streaming actor which listens for query responses
-class TweetStreamerActor(io : ActorRef) extends Actor {
+class TweetStreamerActor(io: ActorRef, aggregator: ActorRef) extends Actor {
+
   auth: TwitterAuthorization =>
 
   def receive: Receive = {
     case query: String =>
       val body = HttpEntity(ContentType(MediaTypes.`application/x-www-form-urlencoded`), s"track=$query")
       val rq = HttpRequest(HttpMethods.POST, uri = twitterStreamingUri, entity = body) ~> authorize
-      sendTo(io).withResponsesReceivedBy(context.actorOf(Props(new TwitterQueryActor(query))))(rq)
+      sendTo(io).withResponsesReceivedBy(context.actorOf(Props(new TwitterQueryActor(query, aggregator))))(rq)
 
     case HttpResponse(StatusCodes.Unauthorized, _, _, _) =>
       println("Shutting down with error : unauthorized")
@@ -65,9 +63,7 @@ class TweetStreamerActor(io : ActorRef) extends Actor {
 }
 
 // Processes queries responses
-class TwitterQueryActor(query: String) extends Actor {
-  import TweetJsonProtocol.tweet
-  import TweetJsonProtocol.user
+class TwitterQueryActor(query: String, aggregator: ActorRef) extends Actor {
 
   var last : String = ""
 
@@ -76,12 +72,10 @@ class TwitterQueryActor(query: String) extends Actor {
       // do nothing
     case MessageChunk(entity, _) =>
       val chunk = new String(entity.toByteArray)
-      val (tweets, lst) = scanResponseChunks((last + chunk).split("\r").filterNot(_.isEmpty))
+      val (tweets, lst) = scanResponseChunks((last + chunk).split("\r").filterNot((s) => s.isEmpty))
       last = lst.mkString("\r")
       tweets
-        .map((t : Tweet) => (t.user.username, t.text))
-        .map((v : (String, String)) => s"$query :: @${v._1} > ${v._2}")
-        .foreach(println)
+        .foreach((tweet: Tweet) => aggregator ! (query, tweet))
 
     case ChunkedMessageEnd(_, _) =>
       // do nothing
@@ -97,9 +91,10 @@ class TwitterQueryActor(query: String) extends Actor {
     if (seq.length < 2) {
       (Array(), seq)
     } else {
-      val tweet = JsonParser(seq.head).convertTo[Tweet](TweetJsonProtocol.tweet)
+      // Can parse tweet unless it keep alive string
+      val tweet: Array[Tweet] = if (seq.head.equals("\n")) Array() else Array(JsonParser(seq.head).convertTo[Tweet](TweetJsonProtocol.tweet))
       val (tweets, rest) = scanResponseChunks(seq.tail)
-      (Array(tweet) ++ tweets, rest)
+      (tweet ++ tweets, rest)
     }
   }
 }

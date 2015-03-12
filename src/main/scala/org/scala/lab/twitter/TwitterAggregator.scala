@@ -1,17 +1,73 @@
 package org.scala.lab.twitter
 
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor._
 import akka.io.IO
 import com.typesafe.config.ConfigFactory
-import core.OAuth
 import core.OAuth._
 import org.scala.lab.twitter.Configuration._
-import org.scala.lab.twitter.TwitterDefines.twitterStreamingUri
+import org.scala.lab.twitter.TwitterDefines.Tweet
 import spray.can.Http
-import spray.client.pipelining._
-import spray.http._
 
 case class ArgsConfig(authJson: String = "auth.json")
+
+class PrintAggregator extends Actor {
+  override def receive: Receive = {
+    case (query: String, tweet : Tweet) =>
+      println(s"query: %${query.length}s :: @%-20s >  %s".format(query, tweet.user.username, tweet.text))
+    case unexpected =>
+      // TODO: Do something with unexpected message
+      // TODO: Or not?
+  }
+}
+
+class HistogramAggregator extends Actor {
+
+  var factorCountMap = Map[String, Int]()
+
+  override def receive: Actor.Receive = {
+    case (query: String, _: Tweet) =>
+     val hits = factorCountMap.contains(query) match {
+       case true =>
+         factorCountMap(query)
+       case false =>
+         0
+     }
+
+      factorCountMap = factorCountMap ++ Map(query -> (hits + 1))
+    case unexpected =>
+      // TODO: Do something with unexpected message
+      // TODO: Or not?
+  }
+
+  override def aroundPostStop(): Unit = {
+    val (totalTweets, maxQueryLength) = factorCountMap.foldLeft((0, 0))((acc: (Int, Int), kv: (String, Int)) => (acc._1 + kv._2, math.max(acc._2, kv._1.length)))
+    factorCountMap.foreach( (pair : (String, Int)) => {
+      val (query, hits) = pair
+      // Max string length set to 80
+      // TODO: Get terminal width?
+      val maxStringLength = 80
+
+      val barLength = maxStringLength - // total string length
+       maxQueryLength - // query length
+       2 - // two spaces
+       2 - // two brackets
+       math.log10(totalTweets) // digits in tweets amount
+
+      val barCount: Int = (hits * (barLength / totalTweets)).toInt
+      val bar: String = Seq.range(0, barCount).foldLeft("")((acc: String, _) => acc + "|")
+      println((s"%${maxQueryLength}s [%-${barLength}s] %d").format(query, bar, hits))
+    })
+
+    println(s"Total: ${totalTweets}")
+  }
+}
+
+class AggregatorsList(actors: ActorRef*) extends Actor {
+  override def receive: Actor.Receive = {
+    case message =>
+      actors.foreach( _ ! message)
+  }
+}
 
 object TwitterAggregator extends App {
   override def main(args: Array[String]): Unit = {
@@ -54,10 +110,18 @@ object TwitterAggregator extends App {
         val system = ActorSystem(config.actors.systemName)
         val http = IO(Http)(system)
 
+        // Create aggregator
+        val aggregator = system.actorOf(
+            Props(new AggregatorsList(
+              system.actorOf(Props(new PrintAggregator())),
+              system.actorOf(Props(new HistogramAggregator()))
+            ))
+        )
+
         // Create twitter stream
         val stream = system
           .actorOf(Props(
-          new TweetStreamerActor(http)
+          new TweetStreamerActor(http, aggregator)
             with OAuthTwitterAuthorization {
 
             override def consumer: Consumer = authPair.consumer
@@ -68,14 +132,15 @@ object TwitterAggregator extends App {
         // Run queries
         config.twitter.queries.foreach(stream ! _)
 
+        sys.addShutdownHook({
+          println("")
+          system.shutdown()
+          system.awaitTermination()
+        })
+
+
       case None =>
         // do nothing. will print help
     }
-  }
-
-  sys.addShutdownHook(shutdown)
-
-  def shutdown(): Unit = {
-    println("Bye!")
   }
 }

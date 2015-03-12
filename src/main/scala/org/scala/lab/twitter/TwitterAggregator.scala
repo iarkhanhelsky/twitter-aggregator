@@ -51,7 +51,7 @@ object TwitterAggregator extends App {
           Token(config.twitter.auth.token, config.twitter.auth.tokenSecret))
 
         // Init actor system
-        val system = ActorSystem("twitter")
+        val system = ActorSystem(config.actors.systemName)
         val http = IO(Http)(system)
 
         // Create twitter stream

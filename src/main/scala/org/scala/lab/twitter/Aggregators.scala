@@ -25,12 +25,7 @@ class HistogramAggregator extends Actor {
 
   override def receive: Actor.Receive = {
     case (query: String, _: Tweet) =>
-      val hits = factorCountMap.contains(query) match {
-        case true =>
-          factorCountMap(query)
-        case false =>
-          0
-      }
+      val hits = if(factorCountMap.contains(query)) factorCountMap(query) else 0
 
       factorCountMap = factorCountMap ++ Map(query -> (hits + 1))
     case unexpected =>

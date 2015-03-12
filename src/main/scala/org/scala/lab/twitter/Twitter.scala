@@ -45,7 +45,6 @@ class TweetStreamerActor(io : ActorRef) extends Actor {
   auth: TwitterAuthorization =>
 
   def receive: Receive = {
-
     case query: String =>
       val body = HttpEntity(ContentType(MediaTypes.`application/x-www-form-urlencoded`), s"track=$query")
       val rq = HttpRequest(HttpMethods.POST, uri = twitterStreamingUri, entity = body) ~> authorize
@@ -77,7 +76,7 @@ class TwitterQueryActor(query: String) extends Actor {
       // do nothing
     case MessageChunk(entity, _) =>
       val chunk = new String(entity.toByteArray)
-      val (tweets, lst) = scan((last + chunk).split("\r").filterNot(_.isEmpty))
+      val (tweets, lst) = scanResponseChunks((last + chunk).split("\r").filterNot(_.isEmpty))
       last = lst.mkString("\r")
       tweets
         .map((t : Tweet) => (t.user.username, t.text))
@@ -92,12 +91,14 @@ class TwitterQueryActor(query: String) extends Actor {
       context.parent.forward(other)
   }
 
-  def scan(seq: Array[String]): (Array[Tweet], Array[String]) = {
+  // Scan chunks to form Tweet objects
+  // Assuming last string is incomplete by default
+  def scanResponseChunks(seq: Array[String]): (Array[Tweet], Array[String]) = {
     if (seq.length < 2) {
       (Array(), seq)
     } else {
       val tweet = JsonParser(seq.head).convertTo[Tweet](TweetJsonProtocol.tweet)
-      val (tweets, rest) = scan(seq.tail)
+      val (tweets, rest) = scanResponseChunks(seq.tail)
       (Array(tweet) ++ tweets, rest)
     }
   }
